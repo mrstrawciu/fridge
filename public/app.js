@@ -125,8 +125,8 @@ function renderProducts() {
         <div class="product-card-header">
           <span class="product-name">${escapeHtml(p.name)}</span>
           <div class="product-actions">
-            <button onclick="editProduct('${p.id}')" title="Edytuj">&#x270F;&#xFE0F;</button>
-            <button onclick="showDeleteModal('${p.id}')" title="Usuń">&#x1F5D1;&#xFE0F;</button>
+            <button onclick="editProduct(${p.id})" title="Edytuj">&#x270F;&#xFE0F;</button>
+            <button onclick="showDeleteModal(${p.id})" title="Usuń">&#x1F5D1;&#xFE0F;</button>
           </div>
         </div>
         <div class="product-meta">
