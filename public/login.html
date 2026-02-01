@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <title>Lodówka - Logowanie</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .login-wrapper {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-box {
+      background: white;
+      border-radius: 16px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+    .login-box h1 {
+      font-size: 2rem;
+      margin-bottom: 4px;
+    }
+    .login-box h2 {
+      font-size: 1.1rem;
+      color: var(--text-light);
+      font-weight: 500;
+      margin-bottom: 28px;
+    }
+    .login-box input[type="password"] {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 1.1rem;
+      text-align: center;
+      letter-spacing: 4px;
+      margin-bottom: 16px;
+      transition: border-color 0.2s;
+    }
+    .login-box input[type="password"]:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .login-error {
+      color: var(--danger);
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrapper">
+    <form class="login-box" method="POST" action="/login">
+      <h1>&#x1F9CA;</h1>
+      <h2>Lodówka</h2>
+      <div id="error" class="login-error" style="display:none">Złe hasło, spróbuj ponownie</div>
+      <input type="password" name="password" placeholder="Hasło" autofocus required>
+      <button type="submit" class="btn btn-primary" style="width:100%">Wejdź</button>
+    </form>
+  </div>
+  <script>
+    if (location.search.includes('error=1')) {
+      document.getElementById('error').style.display = 'block';
+    }
+  </script>
+</body>
+</html>

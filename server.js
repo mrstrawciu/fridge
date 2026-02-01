@@ -1,10 +1,12 @@
 const express = require('express');
+const crypto = require('crypto');
 const path = require('path');
 const db = require('./db');
 const { startBot } = require('./bot');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const APP_PASSWORD = process.env.APP_PASSWORD || '';
 
 const CONFIG = {
   users: ['Ja', 'Żona'],
@@ -24,6 +26,54 @@ const CONFIG = {
 };
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// --- Auth ---
+
+function makeToken(password) {
+  return crypto.createHash('sha256').update(password + '_lodowka').digest('hex').slice(0, 32);
+}
+
+function parseCookies(header) {
+  const cookies = {};
+  if (!header) return cookies;
+  header.split(';').forEach(c => {
+    const [k, ...v] = c.split('=');
+    cookies[k.trim()] = v.join('=').trim();
+  });
+  return cookies;
+}
+
+// Login endpoint
+app.post('/login', (req, res) => {
+  const { password } = req.body;
+  if (!APP_PASSWORD) return res.redirect('/');
+  if (password === APP_PASSWORD) {
+    const token = makeToken(APP_PASSWORD);
+    res.setHeader('Set-Cookie', `auth=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${60 * 60 * 24 * 90}`);
+    return res.redirect('/');
+  }
+  res.redirect('/login.html?error=1');
+});
+
+// Auth middleware - protect everything except login page
+app.use((req, res, next) => {
+  if (!APP_PASSWORD) return next(); // no password = no protection
+
+  if (req.path === '/login.html' || req.path === '/login') return next();
+
+  const cookies = parseCookies(req.headers.cookie);
+  const expected = makeToken(APP_PASSWORD);
+
+  if (cookies.auth === expected) return next();
+
+  // Not authenticated - serve login page
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Nie zalogowany' });
+  }
+  return res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API Routes ---
