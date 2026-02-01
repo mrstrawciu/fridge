@@ -116,7 +116,19 @@ app.get('/api/expiring', async (req, res) => {
 // --- Start ---
 
 async function start() {
-  await db.initDB();
+  // Retry DB connection (Railway may start DB after the app)
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      await db.initDB();
+      break;
+    } catch (err) {
+      if (attempt === 5) throw err;
+      const delay = attempt * 3;
+      console.log(`Połączenie z bazą nieudane (próba ${attempt}/5). Ponawiam za ${delay}s...`);
+      await new Promise(r => setTimeout(r, delay * 1000));
+    }
+  }
+
   startBot();
   app.listen(PORT, () => {
     console.log(`Lodówka działa na http://localhost:${PORT}`);
@@ -124,6 +136,6 @@ async function start() {
 }
 
 start().catch(err => {
-  console.error('Nie udało się uruchomić aplikacji:', err);
+  console.error('Nie udało się uruchomić aplikacji:', err.message || err);
   process.exit(1);
 });

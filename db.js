@@ -1,8 +1,15 @@
 const { Pool } = require('pg');
 
+if (!process.env.DATABASE_URL) {
+  console.error('BŁĄD: Zmienna DATABASE_URL nie jest ustawiona!');
+  console.error('Na Railway: dodaj PostgreSQL (+ New → Database → PostgreSQL),');
+  console.error('potem podepnij zmienną DATABASE_URL do serwisu aplikacji.');
+  process.exit(1);
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+  ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
 });
 
 async function initDB() {
