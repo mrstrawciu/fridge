@@ -10,217 +10,111 @@ Prosta aplikacja webowa do śledzenia produktów w lodówce wraz z datami ważno
 - Kolorowe oznaczenie statusu (zielony = OK, żółty = wkrótce, czerwony = przeterminowany)
 - Historia usuniętych produktów
 - Wyszukiwanie i filtrowanie po kategoriach
-- Powiadomienia WhatsApp o przeterminowanych produktach (opcjonalnie)
+- **Bot Telegram** z powiadomieniami i komendami
 - Obsługa dwóch użytkowników
 - Interfejs zoptymalizowany pod telefon
+- **PostgreSQL** - dane bezpieczne przy każdym deploy
 
 ---
 
-## Instalacja na serwerze - krok po kroku
+## Deployment na Railway - krok po kroku
 
-### Krok 1: Wynajmij serwer
+### Krok 1: Dodaj bazę danych PostgreSQL
 
-Najtańsza opcja to np. serwer VPS:
-- **Oracle Cloud** - darmowy VPS (Always Free tier)
-- **Hetzner** - od ~3 EUR/miesiąc
-- **DigitalOcean** - od 4 USD/miesiąc
+1. Zaloguj się na [railway.app](https://railway.app)
+2. Otwórz swój projekt z aplikacją Lodówka
+3. Kliknij **"+ New"** w prawym górnym rogu
+4. Wybierz **"Database" → "Add PostgreSQL"**
+5. Railway automatycznie utworzy bazę danych
 
-Wybierz system **Ubuntu 22.04** lub nowszy.
+### Krok 2: Połącz bazę z aplikacją
 
-### Krok 2: Zaloguj się na serwer
+1. Kliknij na serwis z bazą PostgreSQL
+2. Przejdź do zakładki **"Variables"**
+3. Skopiuj wartość `DATABASE_URL`
+4. Kliknij na serwis z aplikacją (web)
+5. Przejdź do **"Variables"**
+6. Dodaj zmienną: `DATABASE_URL` = (wklej skopiowaną wartość)
 
-Po otrzymaniu danych do serwera (adres IP, hasło/klucz SSH):
+**Albo prościej:** Railway potrafi automatycznie połączyć zmienne:
+1. Kliknij serwis aplikacji → **"Variables"**
+2. Kliknij **"Add a variable reference"**
+3. Wybierz PostgreSQL i `DATABASE_URL`
 
-```bash
-ssh root@TWOJ_ADRES_IP
-```
+### Krok 3: Deploy
 
-### Krok 3: Zainstaluj Node.js
-
-```bash
-# Zaktualizuj system
-apt update && apt upgrade -y
-
-# Zainstaluj Node.js 20
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt install -y nodejs
-
-# Sprawdź czy działa
-node --version
-npm --version
-```
-
-### Krok 4: Skopiuj pliki aplikacji na serwer
-
-Na swoim komputerze, w terminalu:
-
-```bash
-# Skopiuj cały folder na serwer
-scp -r ./fridge root@TWOJ_ADRES_IP:/root/fridge
-```
-
-Albo na serwerze:
-
-```bash
-# Sklonuj repozytorium (jeśli jest na GitHubie)
-cd /root
-git clone https://github.com/TWOJ_USER/fridge.git
-cd fridge
-```
-
-### Krok 5: Zainstaluj zależności i uruchom
-
-```bash
-cd /root/fridge
-npm install
-```
-
-### Krok 6: Ustaw automatyczne uruchamianie
-
-Utwórz plik systemowy:
-
-```bash
-nano /etc/systemd/system/fridge.service
-```
-
-Wklej poniższą zawartość (naciśnij Ctrl+Shift+V):
-
-```ini
-[Unit]
-Description=Lodowka App
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/root/fridge
-ExecStart=/usr/bin/node server.js
-Restart=on-failure
-RestartSec=10
-Environment=PORT=3000
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Zapisz (Ctrl+X, Y, Enter) i uruchom:
-
-```bash
-# Włącz i uruchom
-systemctl enable fridge
-systemctl start fridge
-
-# Sprawdź czy działa
-systemctl status fridge
-```
-
-### Krok 7: Otwórz port w firewallu
-
-```bash
-ufw allow 80
-ufw allow 443
-ufw allow 3000
-```
-
-Teraz aplikacja powinna być dostępna pod adresem:
-`http://TWOJ_ADRES_IP:3000`
-
-### Krok 8 (opcjonalnie): Ustaw domenę i HTTPS
-
-Jeśli masz domenę (np. lodowka.example.com):
-
-```bash
-# Zainstaluj Nginx (proxy)
-apt install -y nginx
-
-# Utwórz konfigurację
-nano /etc/nginx/sites-available/fridge
-```
-
-Wklej:
-
-```nginx
-server {
-    listen 80;
-    server_name lodowka.twojadomena.pl;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-Zapisz i włącz:
-
-```bash
-ln -s /etc/nginx/sites-available/fridge /etc/nginx/sites-enabled/
-nginx -t
-systemctl restart nginx
-
-# Zainstaluj certyfikat SSL (HTTPS) za darmo
-apt install -y certbot python3-certbot-nginx
-certbot --nginx -d lodowka.twojadomena.pl
-```
+Wypchnij zmiany na GitHub - Railway automatycznie zrobi deploy.
 
 ---
 
-## Powiadomienia WhatsApp (opcjonalnie)
+## Bot Telegram - konfiguracja krok po kroku
 
-### Konfiguracja Twilio
+### Krok 1: Utwórz bota
 
-1. Załóż konto na [twilio.com](https://www.twilio.com/) (jest darmowy trial)
-2. W panelu Twilio przejdź do **Messaging > Try it out > Send a WhatsApp message**
-3. Zeskanuj kod QR telefonem, żeby połączyć swój numer z Twilio Sandbox
-4. Zanotuj swoje **Account SID** i **Auth Token** z panelu Twilio
+1. Otwórz Telegram na telefonie
+2. Wyszukaj **@BotFather** i napisz do niego
+3. Wyślij komendę: `/newbot`
+4. Podaj nazwę bota, np: `Lodówka`
+5. Podaj username bota, np: `moja_lodowka_bot` (musi kończyć się na `bot`)
+6. BotFather da Ci **token** - skopiuj go (wygląda tak: `123456789:ABCdefGHIjklMNOpqrSTUvwxYZ`)
 
-### Uzupełnij konfigurację
+### Krok 2: Znajdź swój Chat ID
 
-Edytuj plik `data/config.json` na serwerze:
+1. Napisz do swojego nowo utworzonego bota cokolwiek (np. "cześć")
+2. Następnie napisz do bota komendę: `/chatid`
+3. Bot odpowie Twoim Chat ID (np. `123456789`)
+4. Powtórz to samo z telefonu żony
 
-```json
-{
-  "twilio": {
-    "accountSid": "TWOJ_ACCOUNT_SID",
-    "authToken": "TWOJ_AUTH_TOKEN",
-    "fromNumber": "whatsapp:+14155238886",
-    "toNumbers": [
-      "whatsapp:+48XXXXXXXXX",
-      "whatsapp:+48YYYYYYYYY"
-    ]
-  },
-  "notifyDaysBefore": 2
-}
-```
+### Krok 3: Ustaw zmienne w Railway
 
-- `fromNumber` - numer Twilio Sandbox (domyślnie jak wyżej)
-- `toNumbers` - wpisz numery telefonów swoje i żony (format: whatsapp:+48...)
-- `notifyDaysBefore` - ile dni przed przeterminowaniem wysłać powiadomienie
+W serwisie aplikacji na Railway, dodaj zmienne środowiskowe (**Variables**):
 
-### Ustaw automatyczne powiadomienia (cron)
+| Zmienna | Wartość | Opis |
+|---------|---------|------|
+| `TELEGRAM_BOT_TOKEN` | `123456789:ABCdef...` | Token od BotFather |
+| `TELEGRAM_CHAT_IDS` | `111111,222222` | Chat ID Twój i żony, po przecinku |
+| `NOTIFY_HOUR` | `08:00` | Godzina powiadomień (domyślnie 08:00) |
+| `NOTIFY_DAYS_BEFORE` | `2` | Ile dni przed przeterminowaniem ostrzec |
 
-```bash
-# Otwórz crontab
-crontab -e
+### Krok 4: Przetestuj
 
-# Dodaj linię (powiadomienia codziennie o 8:00 rano)
-0 8 * * * cd /root/fridge && /usr/bin/node notify.js >> /var/log/fridge-notify.log 2>&1
-```
+Napisz do bota na Telegramie:
+- `/start` - zobaczysz powitanie i listę komend
+- `/lodowka` - pokaże zawartość lodówki
+- `/przeterminowane` - pokaże kończące się produkty
+- `/kategorie` - pokaże produkty wg kategorii
 
-### Testuj
+Bot automatycznie wyśle wam powiadomienia codziennie o ustawionej godzinie, jeśli coś się kończy.
 
-```bash
-cd /root/fridge
-node notify.js
-```
+---
+
+## Wszystkie zmienne środowiskowe
+
+| Zmienna | Wymagana | Domyślna | Opis |
+|---------|----------|----------|------|
+| `DATABASE_URL` | Tak | - | Adres bazy PostgreSQL |
+| `PORT` | Nie | `3000` | Port serwera HTTP |
+| `TELEGRAM_BOT_TOKEN` | Nie | - | Token bota Telegram |
+| `TELEGRAM_CHAT_IDS` | Nie | - | Chat ID (po przecinku) |
+| `NOTIFY_HOUR` | Nie | `08:00` | Godzina powiadomień |
+| `NOTIFY_DAYS_BEFORE` | Nie | `2` | Dni przed przeterminowaniem |
 
 ---
 
 ## Uruchamianie lokalne (do testów)
 
 ```bash
+# Uruchom lokalny PostgreSQL (np. przez Docker)
+docker run -d --name fridge-db -p 5432:5432 -e POSTGRES_PASSWORD=pass -e POSTGRES_DB=fridge postgres:16
+
+# Ustaw zmienną
+export DATABASE_URL="postgresql://postgres:pass@localhost:5432/fridge"
+
+# Opcjonalnie - bot Telegram
+export TELEGRAM_BOT_TOKEN="twoj-token"
+export TELEGRAM_CHAT_IDS="twoj-chat-id"
+
+# Zainstaluj i uruchom
 npm install
 npm start
 ```
@@ -233,15 +127,12 @@ Otwórz w przeglądarce: http://localhost:3000
 
 ```
 fridge/
-├── server.js          # Serwer Express (backend)
-├── notify.js          # Skrypt powiadomień WhatsApp
+├── server.js          # Serwer Express (backend + start)
+├── db.js              # Moduł bazy danych PostgreSQL
+├── bot.js             # Bot Telegram + powiadomienia
 ├── package.json       # Zależności
-├── public/
-│   ├── index.html     # Strona główna
-│   ├── style.css      # Style (mobile-first)
-│   └── app.js         # Logika frontend
-└── data/              # Dane (tworzone automatycznie)
-    ├── products.json  # Produkty w lodówce
-    ├── history.json   # Historia usuniętych
-    └── config.json    # Konfiguracja
+└── public/
+    ├── index.html     # Strona główna
+    ├── style.css      # Style (mobile-first)
+    └── app.js         # Logika frontend
 ```
