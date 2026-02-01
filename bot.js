@@ -29,10 +29,12 @@ function startBot() {
       'Cześć! Pomagam pilnować dat ważności produktów w lodówce.',
       '',
       '*Komendy:*',
-      '/lodowka - pokaż zawartość lodówki',
-      '/przeterminowane - produkty do wyrzucenia',
-      '/kategorie - pokaż produkty wg kategorii',
-      '/chatid - pokaż ID tego czatu (do konfiguracji)',
+      '/dodaj — dodaj produkt (np. `/dodaj Mleko 2l 15.02`)',
+      '/usun — usuń produkt z lodówki',
+      '/lodowka — pokaż zawartość lodówki',
+      '/przeterminowane — produkty do wyrzucenia',
+      '/kategorie — pokaż produkty wg kategorii',
+      '/chatid — pokaż ID tego czatu',
       '',
       `Powiadomienia codziennie o ${NOTIFY_HOUR}.`
     ].join('\n'), { parse_mode: 'Markdown' });
@@ -40,6 +42,130 @@ function startBot() {
 
   bot.onText(/\/chatid/, (msg) => {
     bot.sendMessage(msg.chat.id, `ID tego czatu: \`${msg.chat.id}\``, { parse_mode: 'Markdown' });
+  });
+
+  // --- /dodaj ---
+  bot.onText(/\/dodaj(?:@\w+)?\s+(.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const input = match[1].trim();
+    const parsed = parseProductInput(input);
+
+    if (!parsed.name) {
+      return bot.sendMessage(chatId,
+        '❌ Nie rozpoznałem nazwy produktu\\. Spróbuj np\\.\n`/dodaj Mleko 2l 15.02`',
+        { parse_mode: 'MarkdownV2' });
+    }
+
+    try {
+      const product = await db.addProduct({
+        name: parsed.name,
+        category: 'Inne',
+        quantity: parsed.quantity || 1,
+        unit: parsed.unit || 'szt.',
+        expiryDate: parsed.expiryDate,
+        addedBy: msg.from.first_name || 'Telegram'
+      });
+
+      bot.sendMessage(chatId, [
+        '✅ *Dodano do lodówki:*',
+        '',
+        `📦 *${escapeMarkdown(product.name)}*`,
+        `📏 ${product.quantity} ${escapeMarkdown(product.unit)}`,
+        `📅 Ważność: ${formatDate(product.expiryDate)}`,
+      ].join('\n'), { parse_mode: 'Markdown' });
+    } catch (err) {
+      console.error('Błąd /dodaj:', err);
+      bot.sendMessage(chatId, '❌ Wystąpił błąd przy dodawaniu produktu.');
+    }
+  });
+
+  // /dodaj without arguments — show help
+  bot.onText(/\/dodaj(?:@\w+)?$/, (msg) => {
+    bot.sendMessage(msg.chat.id, [
+      '📝 *Jak dodać produkt:*',
+      '',
+      '`/dodaj Nazwa [ilość+jednostka] [data]`',
+      '',
+      '*Przykłady:*',
+      '`/dodaj Mleko` — 1 szt., ważność +7 dni',
+      '`/dodaj Mleko 2l` — 2 litry, ważność +7 dni',
+      '`/dodaj Mleko 2l 15.02` — 2 litry, do 15 lut',
+      '`/dodaj Ser żółty 200g 20.02.2026`',
+      '',
+      '*Jednostki:* l, ml, kg, g, szt, op',
+      '*Data:* DD.MM lub DD.MM.RRRR',
+    ].join('\n'), { parse_mode: 'Markdown' });
+  });
+
+  // --- /usun ---
+  bot.onText(/\/usun/, async (msg) => {
+    const chatId = msg.chat.id;
+    try {
+      const products = await db.getAllProducts();
+      if (products.length === 0) {
+        return bot.sendMessage(chatId, '🧊 Lodówka jest pusta!');
+      }
+
+      const keyboard = products.slice(0, 30).map(p => [{
+        text: `${getExpiryIcon(p.expiryDate)} ${p.name} (${p.quantity} ${p.unit})`,
+        callback_data: `del_${p.id}`
+      }]);
+
+      bot.sendMessage(chatId, '🗑️ *Który produkt usunąć?*', {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+    } catch (err) {
+      console.error('Błąd /usun:', err);
+      bot.sendMessage(chatId, '❌ Wystąpił błąd.');
+    }
+  });
+
+  // --- Callback queries (for /usun inline buttons) ---
+  bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const msgId = query.message.message_id;
+    const data = query.data;
+
+    if (data.startsWith('del_')) {
+      const productId = parseInt(data.split('_')[1]);
+      const products = await db.getAllProducts();
+      const product = products.find(p => p.id === productId);
+      const productName = product ? product.name : 'produkt';
+
+      bot.editMessageText(`Co zrobić z *${escapeMarkdown(productName)}*?`, {
+        chat_id: chatId,
+        message_id: msgId,
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '✅ Zużyty', callback_data: `rm_${productId}_used` }],
+            [{ text: '❌ Przeterminowany', callback_data: `rm_${productId}_expired` }],
+            [{ text: '↩️ Anuluj', callback_data: 'cancel' }]
+          ]
+        }
+      });
+      bot.answerCallbackQuery(query.id);
+
+    } else if (data.startsWith('rm_')) {
+      const parts = data.split('_');
+      const productId = parseInt(parts[1]);
+      const reason = parts[2];
+
+      try {
+        const result = await db.deleteProduct(productId, reason);
+        const text = result ? '✅ Produkt usunięty!' : '❌ Nie znaleziono produktu.';
+        bot.editMessageText(text, { chat_id: chatId, message_id: msgId });
+      } catch (err) {
+        console.error('Błąd usuwania:', err);
+        bot.editMessageText('❌ Wystąpił błąd.', { chat_id: chatId, message_id: msgId });
+      }
+      bot.answerCallbackQuery(query.id);
+
+    } else if (data === 'cancel') {
+      bot.editMessageText('↩️ Anulowano.', { chat_id: chatId, message_id: msgId });
+      bot.answerCallbackQuery(query.id);
+    }
   });
 
   bot.onText(/\/lodowka/, async (msg) => {
@@ -139,6 +265,73 @@ function startBot() {
   });
 
   console.log(`Powiadomienia zaplanowane na ${NOTIFY_HOUR} codziennie.`);
+}
+
+// --- Input parsing ---
+
+function parseProductInput(input) {
+  const tokens = input.split(/\s+/);
+  let expiryDate = null;
+  let quantity = null;
+  let unit = null;
+
+  const datePattern = /^(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?$/;
+  const qtyPattern = /^(\d+(?:[.,]\d+)?)(l|ml|kg|g|szt|op|opak)?\.?$/i;
+
+  // Check last token for date
+  if (tokens.length > 1) {
+    const match = tokens[tokens.length - 1].match(datePattern);
+    if (match) {
+      expiryDate = parsePolishDate(match[1], match[2], match[3]);
+      tokens.pop();
+    }
+  }
+
+  // Check (new) last token for quantity+unit
+  if (tokens.length > 1) {
+    const match = tokens[tokens.length - 1].match(qtyPattern);
+    if (match) {
+      quantity = parseFloat(match[1].replace(',', '.'));
+      unit = mapUnit(match[2]);
+      tokens.pop();
+    }
+  }
+
+  // Default expiry: +7 days
+  if (!expiryDate) {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    expiryDate = d.toISOString().split('T')[0];
+  }
+
+  const name = tokens.join(' ');
+  return { name: name || null, quantity, unit, expiryDate };
+}
+
+function parsePolishDate(day, month, year) {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  let y = now.getFullYear();
+
+  if (year) {
+    y = year.length <= 2 ? 2000 + parseInt(year) : parseInt(year);
+  } else {
+    const testDate = new Date(y, parseInt(month) - 1, parseInt(day));
+    if (testDate < now) {
+      y += 1;
+    }
+  }
+
+  const m = String(month).padStart(2, '0');
+  const d = String(day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function mapUnit(raw) {
+  if (!raw) return 'szt.';
+  const u = raw.toLowerCase();
+  const map = { l: 'l', ml: 'ml', kg: 'kg', g: 'g', szt: 'szt.', op: 'opak.', opak: 'opak.' };
+  return map[u] || 'szt.';
 }
 
 // --- Helpers ---
