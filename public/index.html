@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2563eb">
+  <title>Lodówka</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header>
+      <h1>&#x1F9CA; Lodówka</h1>
+      <div class="header-actions">
+        <select id="currentUser" class="user-select">
+          <option value="Ja">Ja</option>
+          <option value="Żona">Żona</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="products">Produkty</button>
+      <button class="tab" data-tab="add">+ Dodaj</button>
+      <button class="tab" data-tab="history">Historia</button>
+    </nav>
+
+    <!-- Alert bar for expiring products -->
+    <div id="alertBar" class="alert-bar hidden"></div>
+
+    <!-- Products Tab -->
+    <section id="tab-products" class="tab-content active">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Szukaj produktu...">
+      </div>
+      <div class="filter-bar">
+        <select id="categoryFilter">
+          <option value="">Wszystkie kategorie</option>
+        </select>
+      </div>
+      <div id="productList" class="product-list"></div>
+      <div id="emptyState" class="empty-state hidden">
+        <p>Lodówka jest pusta!</p>
+        <p class="hint">Dodaj produkty klikając "+ Dodaj"</p>
+      </div>
+    </section>
+
+    <!-- Add/Edit Product Tab -->
+    <section id="tab-add" class="tab-content">
+      <form id="productForm" class="product-form">
+        <input type="hidden" id="editId" value="">
+        <div class="form-group">
+          <label for="productName">Nazwa produktu *</label>
+          <input type="text" id="productName" required placeholder="np. Mleko">
+        </div>
+        <div class="form-group">
+          <label for="productCategory">Kategoria</label>
+          <select id="productCategory"></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="productQuantity">Ilość</label>
+            <input type="number" id="productQuantity" value="1" min="0.1" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="productUnit">Jednostka</label>
+            <select id="productUnit"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="productExpiry">Data ważności *</label>
+          <input type="date" id="productExpiry" required>
+        </div>
+        <button type="submit" class="btn btn-primary" id="submitBtn">Dodaj produkt</button>
+        <button type="button" class="btn btn-secondary hidden" id="cancelEditBtn">Anuluj edycję</button>
+      </form>
+    </section>
+
+    <!-- History Tab -->
+    <section id="tab-history" class="tab-content">
+      <div id="historyList" class="product-list"></div>
+      <div id="historyEmpty" class="empty-state hidden">
+        <p>Brak historii</p>
+      </div>
+      <button id="clearHistoryBtn" class="btn btn-danger hidden">Wyczyść historię</button>
+    </section>
+  </div>
+
+  <!-- Delete/Use modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 id="modalTitle">Usuń produkt</h3>
+      <p id="modalText"></p>
+      <div class="modal-actions">
+        <button class="btn btn-success" id="modalUsed">Zużyty</button>
+        <button class="btn btn-warning" id="modalExpired">Przeterminowany</button>
+        <button class="btn btn-secondary" id="modalCancel">Anuluj</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
