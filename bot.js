@@ -19,6 +19,13 @@ function startBot() {
   bot = new TelegramBot(TOKEN, { polling: true });
   console.log('Bot Telegram uruchomiony.');
 
+  if (CHAT_IDS.length === 0) {
+    console.warn('UWAGA: TELEGRAM_CHAT_IDS nie ustawione — powiadomienia nie będą wysyłane!');
+    console.warn('Użyj /chatid w Telegramie, a potem dodaj ID do zmiennej TELEGRAM_CHAT_IDS.');
+  } else {
+    console.log(`Powiadomienia będą wysyłane do: ${CHAT_IDS.join(', ')}`);
+  }
+
   // --- Commands ---
 
   bot.onText(/\/start/, (msg) => {
@@ -34,6 +41,7 @@ function startBot() {
       '/lodowka — pokaż zawartość lodówki',
       '/przeterminowane — produkty do wyrzucenia',
       '/kategorie — pokaż produkty wg kategorii',
+      '/test — wyślij testowe powiadomienie',
       '/chatid — pokaż ID tego czatu',
       '',
       `Powiadomienia codziennie o ${NOTIFY_HOUR}.`
@@ -42,6 +50,22 @@ function startBot() {
 
   bot.onText(/\/chatid/, (msg) => {
     bot.sendMessage(msg.chat.id, `ID tego czatu: \`${msg.chat.id}\``, { parse_mode: 'Markdown' });
+  });
+
+  // --- /test (manual notification trigger) ---
+  bot.onText(/\/test/, async (msg) => {
+    const chatId = msg.chat.id;
+    try {
+      const expiring = await db.getExpiring(NOTIFY_DAYS_BEFORE);
+      if (expiring.length === 0) {
+        return bot.sendMessage(chatId, '✅ Brak przeterminowanych produktów — powiadomienie nie zostałoby wysłane.');
+      }
+      const message = buildExpiringMessage(expiring);
+      bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    } catch (err) {
+      console.error('Błąd /test:', err);
+      bot.sendMessage(chatId, '❌ Wystąpił błąd.');
+    }
   });
 
   // --- /dodaj ---
@@ -240,31 +264,40 @@ function startBot() {
   const [hour, minute] = NOTIFY_HOUR.split(':');
   const cronExpr = `${parseInt(minute)} ${parseInt(hour)} * * *`;
 
-  cron.schedule(cronExpr, async () => {
-    console.log(`[${new Date().toISOString()}] Sprawdzam przeterminowane produkty...`);
-    try {
-      const expiring = await db.getExpiring(NOTIFY_DAYS_BEFORE);
-      if (expiring.length === 0) {
-        console.log('Brak przeterminowanych produktów.');
-        return;
-      }
-
-      const message = buildExpiringMessage(expiring);
-
-      for (const chatId of CHAT_IDS) {
-        try {
-          await bot.sendMessage(chatId.trim(), message, { parse_mode: 'Markdown' });
-          console.log(`Powiadomienie wysłane do ${chatId}`);
-        } catch (err) {
-          console.error(`Błąd wysyłki do ${chatId}:`, err.message);
-        }
-      }
-    } catch (err) {
-      console.error('Błąd sprawdzania przeterminowanych:', err);
-    }
+  cron.schedule(cronExpr, () => sendScheduledNotification(), {
+    timezone: 'Europe/Warsaw'
   });
 
-  console.log(`Powiadomienia zaplanowane na ${NOTIFY_HOUR} codziennie.`);
+  console.log(`Powiadomienia zaplanowane na ${NOTIFY_HOUR} (Europe/Warsaw) codziennie.`);
+}
+
+async function sendScheduledNotification() {
+  console.log(`[${new Date().toISOString()}] Sprawdzam przeterminowane produkty...`);
+  try {
+    if (CHAT_IDS.length === 0) {
+      console.warn('Pominięto powiadomienie — TELEGRAM_CHAT_IDS jest puste.');
+      return;
+    }
+
+    const expiring = await db.getExpiring(NOTIFY_DAYS_BEFORE);
+    if (expiring.length === 0) {
+      console.log('Brak przeterminowanych produktów.');
+      return;
+    }
+
+    const message = buildExpiringMessage(expiring);
+
+    for (const chatId of CHAT_IDS) {
+      try {
+        await bot.sendMessage(chatId.trim(), message, { parse_mode: 'Markdown' });
+        console.log(`Powiadomienie wysłane do ${chatId}`);
+      } catch (err) {
+        console.error(`Błąd wysyłki do ${chatId}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('Błąd sprawdzania przeterminowanych:', err);
+  }
 }
 
 // --- Input parsing ---
