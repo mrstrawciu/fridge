@@ -12,7 +12,7 @@ export default function Navbar() {
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
             <Cpu size={18} className="text-white" />
           </div>
-          <span className="text-lg font-bold text-white">AI Agent Creator</span>
+          <span className="text-lg font-bold text-white">Agent Builder</span>
         </Link>
 
         {location.pathname !== '/' && (

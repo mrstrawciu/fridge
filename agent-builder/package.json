@@ -1,7 +1,7 @@
 {
-  "name": "ai-agent-creator",
+  "name": "agent-builder",
   "version": "1.0.0",
-  "description": "Visual AI Agent Creator with drag & drop canvas",
+  "description": "Visual AI Agent Builder - drag & drop canvas for AI agent pipelines",
   "main": "server/index.js",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
